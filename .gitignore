@@ -1,0 +1,17 @@
+node_modules/
+sessions/
+browser-data/
+*.png
+*.log
+*.err
+logs/
+endpoints.json
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
