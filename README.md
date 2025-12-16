@@ -1,213 +1,292 @@
-# Stealth Playwright WebSocket Server
+# Playwright Server
 
-Anti-detection browser automation server for M1 Max Mac with auto-start.
+A clean, modular remote browser automation server with session management and stealth injection.
 
 ## Features
 
-- **Auto-Start**: Runs on boot via launchd
-- **Dual Mode**: Headless (port 2222) + Headed (port 2223)
-- **Remote Access**: Accessible from other devices on LAN
-- **HTTP Endpoint Server**: Fetch current WebSocket endpoints (port 2221)
-- **Stealth Mode**: Bypasses bot detection
-- **Persistent Sessions**: Cookies, localStorage preserved
-- **Human Behavior**: Realistic mouse, typing, scrolling
+- **MCP Server**: Use as a tool in Claude Desktop, Claude Code, Cursor, and other AI apps
+- **Session Persistence**: Login once interactively, reuse sessions headlessly forever
+- **REST API**: Simple HTTP endpoints for browser control
+- **WebSocket**: Real-time page events and bidirectional communication
+- **Stealth Mode**: Anti-detection scripts to bypass bot detection
+- **macOS Service**: Auto-start on boot via launchd
+- **TypeScript**: Type-safe, maintainable codebase
 
-## Quick Setup
+## Quick Start
 
 ```bash
-git clone <repository-url>
-cd Playwright-WebSocket
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Run as MCP server (for AI apps)
+npm run mcp
+
+# Or run as REST/WebSocket server
+npm run dev
+```
+
+---
+
+## MCP Integration (AI Applications)
+
+This server implements **MCP Streamable HTTP** (specification 2025-03-26) - the standard protocol for AI tool integration. **No local files needed** - connect directly via HTTP from any machine!
+
+```
+┌─────────────────┐                    ┌─────────────────┐
+│  Claude Code    │   MCP over HTTP    │  Playwright     │
+│  Cursor         │ ──────────────────►│  Server         │
+│  Any AI App     │   :2345/mcp        │  (Always On)    │
+└─────────────────┘                    └────────┬────────┘
+                                                │
+                                                ▼
+                                       ┌─────────────────┐
+                                       │  Headed Browser │
+                                       │  (Visible)      │
+                                       └─────────────────┘
+```
+
+### Step 1: Start the Server
+
+```bash
+# Install and run as background service (auto-starts on boot)
 ./setup.sh
+
+# Or run manually
+npm run dev
 ```
 
-This will:
-- Install npm dependencies
-- Install browsers
-- Configure auto-start on boot
-- Start the server
+### Step 2: Connect Your AI App (No Local Files!)
 
-**Note:** The setup script automatically detects the project directory and configures paths accordingly.
+**Claude Code** - One command, that's it:
 
-## Ports
-
-| Port | Service | Use Case |
-|------|---------|----------|
-| 2221 | HTTP Endpoint Server | Fetch current WebSocket endpoints for remote clients |
-| 2222 | WebSocket (Headless) | Background automation, scraping |
-| 2223 | WebSocket (Headed) | Debugging, login sessions, visual tasks |
-
-## Remote Access
-
-The server is accessible from other devices on your LAN. The server automatically detects and uses your LAN IP address (e.g., `192.168.11.150`).
-
-### Getting Endpoints
-
-**From Remote Device:**
 ```bash
-# Fetch current WebSocket endpoints
-curl http://192.168.11.150:2221/endpoints.json
+claude mcp add --transport http playwright http://192.168.11.150:2345/mcp
 ```
 
-**Response:**
+**From any machine on your network:**
+
+```bash
+claude mcp add --transport http playwright http://YOUR_SERVER_IP:2345/mcp
+```
+
+**Cursor** - Add to MCP settings:
+
 ```json
 {
-  "headless": "ws://192.168.11.150:2222/7b7040fc18df52c5795c17ffea1c4736",
-  "headed": "ws://192.168.11.150:2223/fbcb1d2d780ef8dd40885af9263eecd0"
+  "mcpServers": {
+    "playwright": {
+      "type": "http",
+      "url": "http://192.168.11.150:2345/mcp"
+    }
+  }
 }
 ```
 
-**Note:** WebSocket endpoint paths change each time the server restarts. Always fetch the latest endpoints before connecting.
+### Available MCP Tools
 
-### Using Python Client from Remote Device
+| Tool | Description |
+|------|-------------|
+| `browser_navigate` | Navigate to a URL |
+| `browser_screenshot` | Take a screenshot (returns image) |
+| `browser_click` | Click on an element |
+| `browser_type` | Type text into an input |
+| `browser_evaluate` | Execute JavaScript |
+| `browser_content` | Get page HTML |
+| `browser_sessions_list` | List saved sessions |
+| `browser_session_login` | Start interactive login (opens browser) |
+| `browser_session_close` | Save login session and close browser |
+| `browser_close` | Close browser context |
+| `browser_status` | Get browser status |
 
-The client automatically fetches endpoints from the HTTP server:
+### MCP Usage Examples
+
+Once configured, you can ask the AI to:
+
+- "Navigate to https://example.com and take a screenshot"
+- "Click on the login button"
+- "Type my email into the email field"
+- "Get the page content"
+- "Create a login session for Gmail"
+- "Use my gmail session to check my inbox"
+
+---
+
+## MCP Protocol Details
+
+The server implements **MCP Streamable HTTP** per [specification 2025-03-26](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports).
+
+**Endpoint:** `http://YOUR_SERVER_IP:2345/mcp`
+
+| Method | Description |
+|--------|-------------|
+| POST | Send JSON-RPC requests (initialize, tools/list, tools/call) |
+| GET /stream | SSE stream for server notifications |
+| DELETE | Terminate session |
+
+**Session Management:** Server returns `Mcp-Session-Id` header on initialize. Include in subsequent requests.
+
+**Content Types:** Server responds with `application/json` or `text/event-stream` (SSE)
+
+---
+
+## REST API
+
+Base URL: `http://YOUR_IP:2345/api`
+
+### Session Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/sessions` | List all saved sessions |
+| POST | `/sessions/:name/login` | Start interactive login (opens browser) |
+| DELETE | `/sessions/:name` | Delete a session |
+
+### Browser Operations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/navigate` | Navigate to URL |
+| POST | `/screenshot` | Take screenshot |
+| POST | `/evaluate` | Run JavaScript |
+| POST | `/click` | Click element |
+| POST | `/type` | Type text |
+| GET | `/page/content` | Get page HTML |
+| POST | `/context/close` | Close browser context |
+| POST | `/shutdown` | Stop all browsers |
+
+### Health Check
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Server health status |
+
+## Usage Examples
+
+### 1. Create a Login Session
 
 ```bash
-python3 client.py --host 192.168.11.150 --headed --url http://localhost:5173
+# Opens a visible browser - complete login manually
+curl -X POST http://localhost:2345/api/sessions/gmail/login \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://gmail.com"}'
 ```
 
-Or use the full WebSocket endpoint directly:
+A browser window opens. Complete the login within 5 minutes. Session is saved automatically.
+
+### 2. Use Session for Automation
 
 ```bash
-python3 client.py --ws-endpoint "ws://192.168.11.150:2223/fbcb1d2d780ef8dd40885af9263eecd0" --url http://localhost:5173
+# Navigate using saved session (headless)
+curl -X POST http://localhost:2345/api/navigate \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://gmail.com", "session": "gmail"}'
+
+# Take screenshot
+curl -X POST http://localhost:2345/api/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{"session": "gmail"}' \
+  --output screenshot.png
 ```
 
-## Control Commands
+### 3. WebSocket Connection
+
+```javascript
+const ws = new WebSocket('ws://localhost:2345/ws');
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: 'navigate',
+    id: '1',
+    data: { url: 'https://example.com', session: 'gmail' }
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  console.log(msg);
+};
+```
+
+## Service Control (macOS)
 
 ```bash
-./pwctl.sh status   # Check if running
 ./pwctl.sh start    # Start server
 ./pwctl.sh stop     # Stop server
 ./pwctl.sh restart  # Restart server
+./pwctl.sh status   # Check status
 ./pwctl.sh logs     # View logs
 ./pwctl.sh errors   # View errors
+./pwctl.sh build    # Rebuild TypeScript
+./pwctl.sh dev      # Run in dev mode
 ```
 
-## Python Client Usage
+## Project Structure
 
-### Basic (Headless)
-```python
-from stealth_client import StealthBrowser
-import asyncio
-
-async def main():
-    async with StealthBrowser("192.168.11.150") as browser:
-        await browser.goto("https://example.com")
-        print(await browser.page.title())
-
-asyncio.run(main())
+```
+playwright-server/
+├── src/
+│   ├── index.ts           # REST/WebSocket entry point
+│   ├── server.ts          # Express + WebSocket setup
+│   ├── config.ts          # Configuration
+│   ├── mcp/
+│   │   ├── server.ts      # STDIO MCP server (for local AI apps)
+│   │   └── http-server.ts # HTTP MCP server (for remote access)
+│   ├── browser/
+│   │   ├── manager.ts     # Browser lifecycle
+│   │   ├── session.ts     # Session persistence
+│   │   └── stealth.ts     # Anti-detection scripts
+│   ├── api/
+│   │   ├── routes.ts      # REST routes
+│   │   └── handlers.ts    # Request handlers
+│   ├── websocket/
+│   │   └── handler.ts     # WebSocket events
+│   └── utils/
+│       └── network.ts     # Network utilities
+├── sessions/              # Saved login sessions
+├── logs/                  # Server logs
+├── dist/                  # Compiled JavaScript
+├── package.json
+└── tsconfig.json
 ```
 
-### Using Standard Client (client.py)
+## Configuration
 
-The `client.py` script automatically fetches endpoints from the HTTP server:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 2345 | Server port |
 
-```bash
-# Headless mode
-python3 client.py --host 192.168.11.150 --url https://example.com
+## Security
 
-# Headed mode (visible browser on Mac)
-python3 client.py --host 192.168.11.150 --headed --url http://localhost:5173
-```
+**Important:** This server has no authentication. Only use on trusted networks.
 
-### Headed (Visible Browser)
-```python
-async with StealthBrowser("192.168.11.150", headed=True) as browser:
-    await browser.goto("https://example.com")
-    # Watch the browser on Mac screen
-```
-
-### Login & Save Session
-```python
-# First time - headed to see and solve captchas if needed
-async with StealthBrowser("192.168.11.150", session_name="github", headed=True) as browser:
-    await browser.goto("https://github.com/login")
-    await browser.type_text("#login_field", "username")
-    await browser.type_text("#password", "password")
-    await browser.click("[type=submit]")
-    await asyncio.sleep(3)
-    # Session auto-saved on close
-```
-
-### Reuse Session (Headless)
-```python
-# Later - headless, already logged in
-async with StealthBrowser("192.168.11.150", session_name="github") as browser:
-    await browser.goto("https://github.com/settings/profile")
-    # Already logged in!
-```
-
-## Files
-
-| File | Purpose |
-|------|---------|
-| `server.js` | WebSocket server (2 modes) + HTTP endpoint server |
-| `client.py` | Python client (auto-fetches endpoints) |
-| `stealth_client.py` | Python client with stealth features |
-| `setup.sh` | One-time setup + auto-start |
-| `pwctl.sh` | Service control commands |
-| `endpoints.json` | Current WebSocket endpoints (auto-generated) |
-| `sessions/` | Saved browser sessions |
-| `logs/` | Server logs |
-
-## Get Mac IP
-
-```bash
-ipconfig getifaddr en0
-```
-
-## Security & Privacy
-
-⚠️ **IMPORTANT SECURITY NOTES:**
-
-1. **No Authentication**: The server has **no authentication** by default. Anyone on your local network can connect and control browsers.
-
-2. **LAN-Only Access**: The server binds to `0.0.0.0`, making it accessible from all network interfaces. **Do not expose ports 2221, 2222, or 2223 to the internet** without proper security measures.
-
-3. **Firewall Configuration**: 
-   - Keep the server behind a firewall
-   - Only allow access from trusted devices on your LAN
-   - Consider adding authentication for production use
-
-4. **Stealth Plugin**: This project uses stealth plugins to bypass bot detection. Use responsibly and in accordance with:
-   - Website terms of service
-   - Applicable laws and regulations
-   - Ethical automation practices
-
-5. **Session Data**: Browser sessions may contain sensitive cookies and authentication tokens. The `sessions/` directory is excluded from git but ensure proper file permissions.
-
-**Recommended for Production:**
-- Add authentication (e.g., API keys, tokens)
+- Do not expose to the internet
 - Use VPN or SSH tunneling for remote access
-- Implement rate limiting
-- Monitor and log access attempts
+- Sessions contain sensitive cookies - keep `sessions/` directory secure
 
-## Troubleshooting
+## Development
 
-### Cannot Connect from Remote Device
+```bash
+# Install dependencies
+npm install
 
-1. **Check Server Status:**
-   ```bash
-   ./pwctl.sh status
-   ```
+# Run MCP server in development mode
+npm run mcp:dev
 
-2. **Verify Ports are Listening:**
-   ```bash
-   lsof -i :2221 -i :2222 -i :2223
-   ```
+# Run REST/WebSocket server in development mode
+npm run dev
 
-3. **Check Firewall:**
-   - Ensure ports 2221, 2222, and 2223 are open in macOS Firewall
-   - System Preferences → Security & Privacy → Firewall
-   - Only allow access from trusted networks
+# Build for production
+npm run build
 
-4. **Fetch Latest Endpoints:**
-   ```bash
-   curl http://YOUR_LAN_IP:2221/endpoints.json
-   ```
-   WebSocket endpoint paths change on each server restart, so always fetch the latest.
+# Type check
+npm run typecheck
 
-5. **Test Connection:**
-   ```bash
-   python3 client.py --host YOUR_LAN_IP --headed --url https://example.com
-   ```
+# Start production MCP server
+npm run mcp
+
+# Start production REST/WebSocket server
+npm start
+```

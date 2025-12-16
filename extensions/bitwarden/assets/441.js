@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunk_bitwarden_browser=self.webpackChunk_bitwarden_browser||[]).push([[441],{51441:function(e,n,r){r.r(n);var s=r(73442),i=r(82781),t=r(92531);globalThis.init_sdk=(...e)=>(s.Ts(t),new i.BitwardenClient(...e))}}]);
+//# sourceMappingURL=441.js.map

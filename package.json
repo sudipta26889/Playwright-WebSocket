@@ -1,15 +1,39 @@
 {
-  "name": "playwright-websocket-server",
-  "version": "1.0.0",
-  "description": "Stealth Playwright WebSocket server for remote browser automation",
-  "main": "server.js",
+  "name": "playwright-server",
+  "version": "2.0.0",
+  "description": "Remote browser automation server with session management and stealth injection",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "playwright-mcp": "./dist/mcp/server.js"
+  },
   "scripts": {
-    "start": "node server.js",
-    "install-browsers": "npx playwright install chromium firefox webkit"
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "mcp": "node dist/mcp/server.js",
+    "mcp:dev": "tsx src/mcp/server.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.0",
     "playwright": "^1.49.0",
     "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/express": "^5.0.0",
+    "@types/ws": "^8.5.13",
+    "@types/cors": "^2.8.17",
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
