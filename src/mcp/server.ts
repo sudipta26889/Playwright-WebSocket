@@ -181,6 +181,35 @@ const tools: Tool[] = [
       type: 'object',
       properties: {}
     }
+  },
+  {
+    name: 'browser_auto_login',
+    description:
+      'Navigate to a login page, fill credentials, click submit, wait for ' +
+      'navigation, persist storage state to the named session. Tries a ranked ' +
+      'list of selector patterns so it survives most SPA class-name churn. ' +
+      'Returns { success, strategy: {username, password, submit}, finalUrl }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Login page URL' },
+        username: { type: 'string', description: 'Username/email value' },
+        password: { type: 'string', description: 'Password value' },
+        session: {
+          type: 'string',
+          description: 'Optional session name to persist storage state under'
+        },
+        successUrlContains: {
+          type: 'string',
+          description: 'Substring expected in URL after successful login (optional)'
+        },
+        timeoutMs: {
+          type: 'number',
+          description: 'Total timeout budget in ms. Default 60000.'
+        }
+      },
+      required: ['url', 'username', 'password']
+    }
   }
 ];
 
@@ -377,6 +406,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         if (!result.ok) {
           return { content: [{ type: 'text', text: `Error: Server not reachable at ${API_BASE}` }], isError: true };
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(result.data, null, 2)
+          }]
+        };
+      }
+
+      case 'browser_auto_login': {
+        const result = await apiRequest('POST', '/api/auto-login', args);
+
+        if (!result.ok) {
+          return { content: [{ type: 'text', text: `Error: ${JSON.stringify(result.data)}` }], isError: true };
         }
 
         return {
